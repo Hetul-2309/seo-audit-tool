@@ -16,11 +16,15 @@ from .suggest import suggest_title, suggest_description, keyword_hits, content_t
 HEADERS = {"User-Agent": "SEOQuickAuditBot/1.0 (+https://example.com)"}
 TIMEOUT = 15
 
-def fetch(url: str) -> tuple[int, str, float]:
+def fetch(url: str) -> tuple[int, str, float, str | None]:
     t0 = time.time()
-    r = requests.get(url, headers=HEADERS, timeout=TIMEOUT, allow_redirects=True)
-    dt = time.time() - t0
-    return r.status_code, r.text, dt
+    try:
+        r = requests.get(url, headers=HEADERS, timeout=TIMEOUT, allow_redirects=True)
+        dt = time.time() - t0
+        return r.status_code, r.text or "", dt, None
+    except requests.RequestException as e:
+        dt = time.time() - t0
+        return 0, "", dt, str(e)
 
 def check_link(url: str) -> int:
     try:
@@ -177,4 +181,5 @@ def run_audit(url: str, target_keyword: str | None, max_pages: int = 25, max_dep
         "pages": [p.model_dump() for p in pages],
         "broken_links": broken_links[:200],
     }
+
     return report
