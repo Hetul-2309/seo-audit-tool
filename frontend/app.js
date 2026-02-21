@@ -97,4 +97,11 @@ btnPdf.onclick = async () => {
   a.href = URL.createObjectURL(blob);
   a.download = "seo-audit-report.pdf";
   a.click();
+
 };
+
+// Audit
+fetch(`/api/audit?${qs.toString()}`)
+
+// PDF
+fetch(`/api/pdf`, { method: "POST", headers: {...}, body: ... })
