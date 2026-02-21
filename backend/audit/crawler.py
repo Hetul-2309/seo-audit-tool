@@ -50,11 +50,11 @@ def fetch(url: str) -> tuple[int, str, float, str | None, str]:
 
 def check_link(url: str) -> int:
     try:
-        r = requests.head(url, headers=HEADERS, timeout=TIMEOUT, allow_redirects=True)
+        r = requests.head(url, headers=HEADERS, timeout=LINK_TIMEOUT, allow_redirects=True)
         if r.status_code >= 400 or r.status_code == 405:
-            r = requests.get(url, headers=HEADERS, timeout=TIMEOUT, allow_redirects=True)
+            r = requests.get(url, headers=HEADERS, timeout=LINK_TIMEOUT, allow_redirects=True)
         return r.status_code
-    except Exception:
+    except requests.RequestException:
         return 0  # unknown / failed
 
 def run_audit(url: str, target_keyword: str | None, max_pages: int = 25, max_depth: int = 2) -> dict:
@@ -171,10 +171,21 @@ soup = BeautifulSoup(html, "lxml") if html else None
                 desc_map[page.meta_description.strip().lower()].append(page.url)
 
             # Check a small subset of links for broken (MVP: cap per page)
-            for link in links[:30]:
-                code = check_link(link)
-                if code == 0 or code >= 400:
-                    broken_links.append({"from": current, "to": link, "status": code})
+            # Check a small subset of links for broken (FAST: cap + internal-first)
+checked = 0
+for link in links:
+    if checked >= MAX_LINK_CHECKS_PER_PAGE:
+        break
+
+    # Skip external links for speed (optional)
+    if not CHECK_EXTERNAL_LINKS and not same_host(home, link):
+        continue
+
+    code = check_link(link)
+    checked += 1
+
+    if code == 0 or code >= 400:
+        broken_links.append({"from": current, "to": link, "status": code})
 
         pages.append(page)
 
@@ -219,6 +230,7 @@ soup = BeautifulSoup(html, "lxml") if html else None
     }
 
     return report
+
 
 
 
