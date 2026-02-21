@@ -81,10 +81,15 @@ def run_audit(url: str, target_keyword: str | None, max_pages: int = 25, max_dep
         visited.add(current)
 
         status, html, ttfb, err, final_url = fetch(current)
-        soup = BeautifulSoup(html, "lxml") if html else None
 
-        page = PageData(
-            if status == 0:
+# create page record first
+page = PageData(
+    url=final_url,   # or use current if you prefer
+    status=status,
+)
+
+# if fetch failed (DNS / network), record issue and move on
+if status == 0:
     page.issues.append(Issue(
         priority="P1",
         code="FETCH_FAILED",
@@ -94,10 +99,9 @@ def run_audit(url: str, target_keyword: str | None, max_pages: int = 25, max_dep
     ))
     pages.append(page)
     continue
-            url=current,
-            status=status,
-        )
 
+# only parse soup if fetch succeeded
+soup = BeautifulSoup(html, "lxml") if html else None
         if soup and status < 400:
             page.title = get_title(soup)
             page.meta_description = get_meta_description(soup)
@@ -211,4 +215,5 @@ def run_audit(url: str, target_keyword: str | None, max_pages: int = 25, max_dep
     }
 
     return report
+
 
