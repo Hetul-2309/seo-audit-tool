@@ -13,6 +13,10 @@ from .models import PageData, Issue
 from .prioritize import classify_issues
 from .suggest import suggest_title, suggest_description, keyword_hits, content_tips
 
+LINK_TIMEOUT = 4
+MAX_LINK_CHECKS_PER_PAGE = 6
+CHECK_EXTERNAL_LINKS = False
+
 HEADERS = {"User-Agent": "SEOQuickAuditBot/1.0 (+https://example.com)"}
 TIMEOUT = 15
 
@@ -215,5 +219,6 @@ soup = BeautifulSoup(html, "lxml") if html else None
     }
 
     return report
+
 
 
