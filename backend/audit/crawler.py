@@ -1,7 +1,7 @@
 import time
 import requests
 from bs4 import BeautifulSoup
-from urllib.parse import urlparse
+from urllib.parse import urlparse, urlunparse
 from collections import deque, defaultdict
 
 from .utils import normalize_url, same_host, is_http_url, is_private_host
@@ -16,15 +16,33 @@ from .suggest import suggest_title, suggest_description, keyword_hits, content_t
 HEADERS = {"User-Agent": "SEOQuickAuditBot/1.0 (+https://example.com)"}
 TIMEOUT = 15
 
-def fetch(url: str) -> tuple[int, str, float, str | None]:
+def _strip_www(u: str) -> str:
+    p = urlparse(u)
+    host = p.netloc
+    if host.startswith("www."):
+        host = host[4:]
+        return urlunparse((p.scheme, host, p.path, p.params, p.query, p.fragment))
+    return u
+
+def fetch(url: str) -> tuple[int, str, float, str | None, str]:
+    """
+    Returns: (status, html, seconds, error, final_url_used)
+    status=0 means network/DNS failure.
+    """
     t0 = time.time()
     try:
         r = requests.get(url, headers=HEADERS, timeout=TIMEOUT, allow_redirects=True)
-        dt = time.time() - t0
-        return r.status_code, r.text or "", dt, None
+        return r.status_code, (r.text or ""), time.time() - t0, None, url
     except requests.RequestException as e:
-        dt = time.time() - t0
-        return 0, "", dt, str(e)
+        # quick fallback: if www fails, try without www once
+        alt = _strip_www(url)
+        if alt != url:
+            try:
+                r = requests.get(alt, headers=HEADERS, timeout=TIMEOUT, allow_redirects=True)
+                return r.status_code, (r.text or ""), time.time() - t0, None, alt
+            except requests.RequestException as e2:
+                return 0, "", time.time() - t0, f"{e} | fallback: {e2}", alt
+        return 0, "", time.time() - t0, str(e), url
 
 def check_link(url: str) -> int:
     try:
@@ -62,10 +80,20 @@ def run_audit(url: str, target_keyword: str | None, max_pages: int = 25, max_dep
 
         visited.add(current)
 
-        status, html, ttfb = fetch(current)
+        status, html, ttfb, err, final_url = fetch(current)
         soup = BeautifulSoup(html, "lxml") if html else None
 
         page = PageData(
+            if status == 0:
+    page.issues.append(Issue(
+        priority="P1",
+        code="FETCH_FAILED",
+        message=f"Failed to fetch page (DNS/network): {err}",
+        url=current,
+        fix="Try again later or audit a different URL. Some hosts fail DNS resolution from cloud servers intermittently."
+    ))
+    pages.append(page)
+    continue
             url=current,
             status=status,
         )
@@ -183,3 +211,4 @@ def run_audit(url: str, target_keyword: str | None, max_pages: int = 25, max_dep
     }
 
     return report
+
