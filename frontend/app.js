@@ -69,7 +69,7 @@ document.getElementById("run").onclick = async () => {
   out.innerHTML = `<div class="muted">Running audit…</div>`;
   const qs = new URLSearchParams({ url });
   if(kw) qs.set("target_keyword", kw);
-  const res = await fetch(`http://localhost:8000/api/audit?${qs.toString()}`);
+  const res = await fetch(`/api/audit?${qs.toString()}`);
   render(await res.json());
 };
 
@@ -87,11 +87,7 @@ document.getElementById("demo").onclick = () => {
 };
 
 btnPdf.onclick = async () => {
-  const res = await fetch("http://localhost:8000/api/pdf", {
-    method: "POST",
-    headers: {"Content-Type":"application/json"},
-    body: JSON.stringify({ report: currentReport })
-  });
+  const res = await fetch("/api/pdf", ...);
   const blob = await res.blob();
   const a = document.createElement("a");
   a.href = URL.createObjectURL(blob);
@@ -105,3 +101,4 @@ fetch(`/api/audit?${qs.toString()}`)
 
 // PDF
 fetch(`/api/pdf`, { method: "POST", headers: {...}, body: ... })
+
